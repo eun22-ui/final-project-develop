@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans:beans xmlns="http://www.springframework.org/schema/mvc"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:beans="http://www.springframework.org/schema/beans"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xmlns:websocket="http://www.springframework.org/schema/websocket"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xsi:schemaLocation="http://www.springframework.org/schema/websocket http://www.springframework.org/schema/websocket/spring-websocket-4.3.xsd
+		http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc.xsd
+		http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/context https://www.springframework.org/schema/context/spring-context.xsd
+		http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-4.3.xsd">
+
+	<!-- DispatcherServlet Context: defines this servlet's request-processing infrastructure -->
+	
+	<!-- Enables the Spring MVC @Controller programming model -->
+	<annotation-driven />
+
+	<!-- Handles HTTP GET requests for /resources/** by efficiently serving up static resources in the ${webappRoot}/resources directory -->
+	<resources mapping="/resources/**" location="/resources/" />
+
+	<!-- Resolves views selected for rendering by @Controllers to .jsp resources in the /WEB-INF/views directory -->
+	<beans:bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+		<beans:property name="prefix" value="/WEB-INF/views/" />
+		<beans:property name="suffix" value=".jsp" />
+	</beans:bean>
+	
+	<aop:aspectj-autoproxy/>
+	<context:component-scan base-package="com.kh.show">
+		<context:exclude-filter type="annotation" expression="org.springframework.stereotype.Service"/>
+		<context:exclude-filter type="annotation" expression="org.springframework.stereotype.Repository"/>
+	</context:component-scan>
+	
+	
+	<mvc:interceptors>
+	    <mvc:interceptor>
+	        <mvc:mapping path="/managerPage/**" />
+	        <beans:bean class="com.kh.show.common.interceptor.ManagerInterceptor" />
+	    </mvc:interceptor>
+	</mvc:interceptors>
+	
+	
+	<!-- 인터셉터 등록 (로그인 인터셉터) -->
+	<interceptors>
+		<interceptor>
+			<mapping path="/meeting/**"/>  
+			<mapping path="/question/**"/>  
+			<mapping path="/qna/**"/>  
+			<mapping path="/chat/**"/>  
+			<mapping path="/member/**"/>  
+			
+			 <!-- 통합 요청중에 제외하고싶은 요청 매핑 추가  -->
+			<exclude-mapping path="/meeting/list"/>
+			<exclude-mapping path="/meeting/search"/>
+			<exclude-mapping path="/chat/list"/>
+			<exclude-mapping path="/chat/chatSearch"/>
+			<exclude-mapping path="/member/toLogin"/>
+			<exclude-mapping path="/member/login.me"/>
+			<exclude-mapping path="/member/findId"/>
+			<exclude-mapping path="/member/findPwd"/>
+			<exclude-mapping path="/member/newPwd"/>
+			<exclude-mapping path="/member/toEnroll"/> 
+			<exclude-mapping path="/member/toTOS"/>
+			<exclude-mapping path="/member/memberEnrollPage"/>
+			<exclude-mapping path="/member/memberEnrollPage2"/>
+			<exclude-mapping path="/member/insert.me"/>
+			<exclude-mapping path="/member/idCheck"/>
+			<exclude-mapping path="/member/phoneCheck"/>
+			<exclude-mapping path="/member/naver"/>
+
+			<beans:bean class="com.kh.show.common.interceptor.LoginInterceptor"/>
+		</interceptor>
+	</interceptors>
+	
+	<!-- 소켓 서버 등록 -->
+	<beans:bean id="chatServer" class="com.kh.show.common.websocket.server.WebSocketServer"/>
+	
+	<!-- 접속받을 대상 지정 -->
+	<websocket:handlers allowed-origins="http://localhost:8889/show">
+		<!-- 어떤 서버가 요청을 받아줄 것인지 설정 handler -->
+		<!-- 웹소켓에 요청 : view에서 요청  -->
+		<websocket:mapping handler="chatServer" path="/chat/chattings"/>
+		
+		<!-- Http통신으로 요청되어진 HttpSession 정보를 가지고 오기 위한 설정 -->
+		<!-- 웹소켓 연결을 설정할 때 HTTP 세션 정보를 함께 전달하기 위한 설정 -->
+		<websocket:handshake-interceptors>
+			<beans:bean class="org.springframework.web.socket.server.support.HttpSessionHandshakeInterceptor"></beans:bean>
+		</websocket:handshake-interceptors>
+		
+	</websocket:handlers>
+		
+	
+</beans:beans>

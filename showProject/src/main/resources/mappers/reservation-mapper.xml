@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="reservationMapper">
+
+
+	<resultMap type="Reservation" id="reservationResult">
+		<result column="RESERVATION_ID" property="reservationId"/>
+		<result column="SHOW_NO" property="showNo"/>
+		<result column="SHOW_NAME" property="showName"/>	
+		<result column="ROUND_ID" property="roundId"/>
+		<result column="USER_NO" property="userNo"/>
+		<result column="HALL_NO" property="hallNo"/>
+		<result column="HALL_NAME" property="hallName"/>
+		<result column="SHOW_TIME" property="showTime"/>
+		<result column="SHOW_DATE" property="showDate"/>
+		<result column="SHOW_ROUND" property="showRound"/>
+		
+		<collection property="showList" ofType="Show">
+			<result column="SHOW_NAME" property="showName"/>	
+			<result column="SHOW_NO" property="showNo"/>	
+		</collection>
+	
+	</resultMap>
+	
+	<resultMap type="SeatsOfRow" id="SeatsOfRowResultSet">
+		<result column="ROW_NAME" property="rowName"/>
+		<result column="GRADE_NAME" property="gradeName"/>
+	</resultMap>
+	
+	
+	<!-- 예약테이블 생성 (M)-->
+	<insert id="createReservation" parameterType="Reservation">
+		INSERT INTO RESERVATION
+		VALUES(RESERV_SEQ.NEXTVAL, #{showNo}, #{roundId}, #{userNo}, #{hallNo},'M',DEFAULT,NULL)
+	</insert>
+	
+	<!-- 예약테이블 생성 후 확인데이터 가져오기 -->
+	<select id="selectReservation" resultMap="reservationResult">
+		SELECT A.*
+		FROM (SELECT RESERVATION_ID,
+					   ROUND_ID,
+		               SHOW_NAME,
+		               SHOW_ROUND,
+		               SHOW_TIME,
+		               TRUNC(SHOW_DATE)SHOW_DATE,
+		               HALL_NAME
+		        FROM RESERVATION R
+		        JOIN SHOW USING (SHOW_NO)
+		        JOIN SHOWROUND USING (ROUND_ID)
+		        JOIN HALL USING(HALL_NO)
+		        ORDER BY RESERVATION_ID DESC) A
+		WHERE ROWNUM = 1
+	</select>
+	
+
+	<!-- status "N"인 좌석 조회 -->
+	<select id="selectTakenSeats" resultType="String">
+		SELECT ROW_NAME || COL_NO  AS rowName
+		FROM SEATS
+		WHERE STATUS = 'N'
+		AND ROUND_ID = #{roundId}
+	</select>
+	
+	
+	<!-- 등급별좌석 수 조회 -->
+	<select id="selectSeatsNum" resultMap="SeatsOfRowResultSet">
+		SELECT  COUNT(*) AS COUNT,
+                GRADE_NAME 
+		FROM SEATSOFROW
+		JOIN SEATS USING(ROW_NAME)
+		WHERE STATUS = 'Y'
+		AND ROUND_ID= #{roundId}
+		GROUP BY GRADE_NAME
+	</select>
+	
+	
+	<!-- 좌석 상태 변환(M) -->
+	<update id="updateSeatStatus" parameterType="Hashmap">
+		UPDATE SEATS
+		SET STATUS = 'M'
+		WHERE ROW_NAME || COL_NO = #{name}
+		AND ROUND_ID = #{roundId}
+	</update>
+
+
+	<!-- 예약 번호 가져오기 -->
+	<select id="reSearch" parameterType="_int" resultMap="reservationResult">
+		SELECT RESERVATION_ID, SHOW_NAME 
+		FROM RESERVATION
+		JOIN SHOW USING(SHOW_NO)
+		WHERE USER_NO = #{userNo}
+	</select>
+	
+	
+	<!-- 결제 전 예약정보 확인 -->
+	<select id="confirmReservation" resultMap="reservationResult">
+		SELECT RESERVATION_ID,
+			   ROUND_ID,
+               SHOW_NAME,
+               SHOW_ROUND,
+               SHOW_TIME,
+               TRUNC(SHOW_DATE)SHOW_DATE,
+               HALL_NAME
+		FROM RESERVATION R
+		JOIN SHOW USING (SHOW_NO)
+		JOIN SHOWROUND USING (ROUND_ID)
+		JOIN HALL USING(HALL_NO)
+		WHERE RESERVATION_ID = #{reservationId}
+	</select>
+	
+	<!-- 티켓정보 확인 -->
+	<select id="confirmTicket" resultType="com.kh.show.reservation.model.vo.Ticket">
+	      SELECT TICKET_ID AS ticketId
+                ,ROW_NAME || COL_NO AS seatId 
+                ,GRADE_NAME AS seatName
+        FROM TICKET T
+        JOIN SEATS S USING(SEAT_ID)
+        JOIN SEATSOFROW SR USING(ROW_NAME)
+        WHERE RESERVATION_ID = #{reservationId}        
+        AND T.STATUS = 'Y'
+	</select>
+	
+	<!-- (결제완료)좌석 상태 변환(N) -->
+	<update id="updateSeatStatusN" parameterType="Reservation">
+		UPDATE SEATS
+		SET STATUS = 'N'
+		WHERE ROW_NAME || COL_NO IN
+		<foreach collection="seats" item="seatId" open="(" separator="," close=")"> 
+			  #{seatId}
+		</foreach>
+		AND ROUND_ID = #{roundId}
+	</update>
+
+	<!-- (결제완료)예약테이블 상태변환(Y) -->
+	<update id="updateReserStatusY" parameterType="Reservation">
+		UPDATE RESERVATION
+		SET STATUS = 'Y'
+		WHERE RESERVATION_ID = #{reservationId}
+	</update>
+	
+	<!-- 좌석 상태 변환(P) -->
+	<update id="updateSeatStatusP" parameterType="Reservation">
+		UPDATE SEATS
+		SET STATUS = 'P'
+		WHERE ROW_NAME || COL_NO IN
+		<foreach collection="seats" item="seatId" open="(" separator="," close=")"> 
+			  #{seatId}
+		</foreach>
+		AND ROUND_ID = #{roundId}
+	</update>
+	
+	
+	<!-- 좌석 rollbackM (스케줄러)-->
+	<select id="seatsRollbackM">
+		UPDATE SEATS
+		SET STATUS = 'Y'
+		WHERE SEAT_ID IN (
+		                SELECT SEAT_ID
+		                FROM SEATS
+		                WHERE STATUS = 'M')
+	</select>
+	
+	<!-- 좌석 rollbackP (스케줄러)-->
+	<select id="seatsRollbackP">
+		UPDATE SEATS
+		SET STATUS = 'Y'
+		WHERE SEAT_ID IN (
+		                SELECT SEAT_ID
+		                FROM SEATS
+		                WHERE STATUS = 'P')
+	</select>
+	
+	<!-- 예약 rollback (스케줄러)-->
+	<select id="reservationRollback">
+		UPDATE RESERVATION
+		SET STATUS = 'N'
+		WHERE RESERVATION_ID IN (
+		                SELECT RESERVATION_ID 
+		                FROM RESERVATION
+		                WHERE STATUS = 'M')
+	</select>
+	
+
+	
+</mapper>
+
