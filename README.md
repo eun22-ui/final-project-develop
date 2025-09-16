@@ -36,7 +36,7 @@
 <br>
 
 > ### ERD 구조
-> <img width="899" height="676" alt="image" src="https://github.com/user-attachments/assets/4b42a427-e7c8-4f3b-973c-f72aca91096d" />
+> <img width="550" height="350" alt="image" src="https://github.com/user-attachments/assets/4b42a427-e7c8-4f3b-973c-f72aca91096d" />
 
 
 <br>
