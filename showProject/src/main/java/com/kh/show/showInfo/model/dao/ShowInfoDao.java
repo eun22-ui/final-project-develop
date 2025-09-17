@@ -48,6 +48,7 @@ public class ShowInfoDao {
 	// 공연회차조회 > 날짜선택 후(시간/회차)
 	public ArrayList<ShowRound> selectTime(SqlSession session,String date) {
 		ArrayList<ShowRound> list= (ArrayList)session.selectList("showInfoMapper.selectTime",date);
+		System.out.println("^____^");
 		return list;
 	}
 
